@@ -1,0 +1,70 @@
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128  // OLED display width, in pixels
+#define SCREEN_HEIGHT 64  // OLED display height, in pixels
+
+#define OLED_RESET    -1  // Reset pin # (or -1 if sharing Arduino reset pin)
+#define OLED_I2C_ADDRESS 0x3C  // I2C address of your OLED display
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
+const int soundSensorPin = A0; // Analog pin for sound sensor
+const int potPin = A0;         // Analog pin for potentiometer (shared)
+
+int waveData[SCREEN_WIDTH];    // Array to store wave data
+
+void setup() {
+  // Initialize Serial for debugging
+  Serial.begin(115200);
+
+  // Initialize OLED display
+  if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_I2C_ADDRESS)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;); // Don't proceed, loop forever
+  }
+
+  display.clearDisplay();
+  display.display();
+
+  // Initialize the analog pins
+  pinMode(soundSensorPin, INPUT);
+  pinMode(potPin, INPUT);
+
+  // Initialize wave data to zero
+  for (int i = 0; i < SCREEN_WIDTH; i++) {
+    waveData[i] = SCREEN_HEIGHT / 2;
+  }
+}
+
+void loop() {
+  int soundValue = analogRead(soundSensorPin); // Read the sound sensor
+  int potValue = analogRead(potPin);           // Read the potentiometer
+  float amplitude = map(potValue, 0, 1023, 0.5, 3.0); // Map potentiometer value to amplitude range
+
+  // Map sound sensor value to a Y position
+  int newY = map(soundValue, 0, 1023, 0, SCREEN_HEIGHT);
+  newY = SCREEN_HEIGHT / 2 + (newY - SCREEN_HEIGHT / 2) * amplitude;
+
+  // Shift all data in waveData array left by one position
+  for (int i = 0; i < SCREEN_WIDTH - 1; i++) {
+    waveData[i] = waveData[i + 1];
+  }
+  // Add new data point to the end of the array
+  waveData[SCREEN_WIDTH - 1] = newY;
+
+  // Clear the display buffer
+  display.clearDisplay();
+
+  // Draw the waveform on the OLED
+  for (int x = 0; x < SCREEN_WIDTH - 1; x++) {
+    display.drawLine(x, SCREEN_HEIGHT / 2, x, waveData[x], SSD1306_WHITE);
+  }
+
+  // Update the display
+  display.display();
+
+  // Small delay for smoother waveform
+  delay(10);
+}
